@@ -27,6 +27,42 @@ def rows_to_dataframe(rows):
     return pd.DataFrame(data, columns=header)
 
 
+def clean_statement(df):
+    """Turn the raw table into: Date, Description, Debit, Credit (sorted by date)."""
+    # 1. Build a real date from "22-Jan-15" plus the Year column
+    day_month = df["Transaction Date"].str.rsplit("-", n=1).str[0]
+    full_date = day_month + "-" + df["Year"]
+    dates = pd.to_datetime(full_date, format="%d-%b-%Y", errors="coerce")
+
+    # 2. Turn the amount text into a real number
+    amounts = pd.to_numeric(
+        df["Transaction amount"].str.replace(",", "", regex=False),
+        errors="coerce",
+    )
+
+    # 3. Split into Debit and Credit using the Transaction type
+    kind = df["Transaction type"].str.strip().str.lower()
+    debit = amounts.where(kind == "debit")
+    credit = amounts.where(kind == "credit")
+
+    clean = pd.DataFrame(
+        {
+            "Date": dates.dt.strftime("%Y-%m-%d"),
+            "Description": df["Transaction description"],
+            "Debit": debit,
+            "Credit": credit,
+        }
+    )
+
+    bad = clean["Date"].isna() | (debit.isna() & credit.isna())
+    if bad.any():
+        print(f"Warning: {bad.sum()} row(s) had a bad date or amount. Check them.")
+
+    # 4. Sort oldest to newest (stable, so same-day rows keep their original order)
+    clean = clean.sort_values("Date", kind="stable").reset_index(drop=True)
+    return clean
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python convert.py path/to/statement.pdf")
@@ -39,12 +75,16 @@ def main():
         print("No tables found. This may be a scanned PDF or a layout without table lines.")
         return
 
-    df = rows_to_dataframe(rows)
-    output_path = pdf_path.with_suffix(".csv")
-    df.to_csv(output_path, index=False)
+    raw = rows_to_dataframe(rows)
+    clean = clean_statement(raw)
 
-    print(f"Extracted {len(df)} rows -> {output_path}")
-    print(df.head())
+    output_path = pdf_path.with_name(pdf_path.stem + "_clean.csv")
+    clean.to_csv(output_path, index=False)
+
+    print(f"Converted {len(clean)} transactions -> {output_path}")
+    print(clean[["Date", "Debit", "Credit"]].head(10))
+    print("Total debits: ", clean["Debit"].sum())
+    print("Total credits:", clean["Credit"].sum())
 
 
 if __name__ == "__main__":
