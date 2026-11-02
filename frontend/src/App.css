@@ -1,0 +1,16 @@
+.page { max-width: 960px; margin: 0 auto; padding: 32px 16px; font-family: system-ui, sans-serif; }
+h1 { margin-bottom: 4px; }
+.sub { color: #666; margin-top: 0; }
+.drop { display: block; border: 2px dashed #999; border-radius: 12px; padding: 48px 16px; text-align: center; cursor: pointer; margin: 24px 0; }
+.drop.drag { border-color: #2563eb; background: #eff6ff; }
+.bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; width: 40%; background: #2563eb; animation: slide 1s infinite ease-in-out; }
+@keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+.error { color: #b91c1c; }
+.summary { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin: 16px 0; }
+.summary button { margin-left: auto; padding: 8px 16px; background: #2563eb; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+.table-wrap { max-height: 420px; overflow: auto; border: 1px solid #ddd; border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; }
+th { position: sticky; top: 0; background: #f3f4f6; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
