@@ -1,4 +1,5 @@
 import io
+import os
 
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -9,9 +10,15 @@ from convert import clean_statement, extract_rows, rows_to_dataframe
 
 app = FastAPI(title="Bank Statement Converter")
 
+# Which websites may call this API. Locally it allows your Vite page;
+# online, we set ALLOWED_ORIGINS on Render to the Vercel address.
+origins = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[o.strip() for o in origins],
     allow_methods=["*"],
     allow_headers=["*"],
 )
