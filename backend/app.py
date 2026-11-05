@@ -3,10 +3,11 @@ import os
 
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from convert import clean_statement, extract_rows, rows_to_dataframe
+from convert import NoTablesFound, UnsupportedLayout, parse_statement
 
 app = FastAPI(title="Bank Statement Converter")
 
@@ -36,24 +37,20 @@ async def read_statement(file: UploadFile) -> pd.DataFrame:
         raise HTTPException(status_code=413, detail="File is too large (10 MB max).")
 
     try:
-        rows = extract_rows(io.BytesIO(data))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Could not read this PDF.")
-
-    if not rows:
+        # Parsing can take a few seconds on long statements, so keep it off the event loop.
+        return await run_in_threadpool(parse_statement, io.BytesIO(data))
+    except NoTablesFound:
         raise HTTPException(
             status_code=422,
             detail="No tables found. This may be a scanned PDF or an unsupported layout.",
         )
-
-    raw = rows_to_dataframe(rows)
-    try:
-        return clean_statement(raw)
-    except KeyError as missing:
+    except UnsupportedLayout:
         raise HTTPException(
             status_code=422,
-            detail=f"This bank's layout isn't supported yet (missing column {missing}).",
+            detail="This bank's layout isn't supported yet.",
         )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read this PDF.")
 
 
 @app.get("/")
@@ -69,8 +66,8 @@ async def preview(file: UploadFile = File(...)):
         '{"count": %d, "total_debits": %s, "total_credits": %s, "rows": %s}'
         % (
             len(clean),
-            clean["Debit"].sum(),
-            clean["Credit"].sum(),
+            round(float(clean["Debit"].sum()), 2),
+            round(float(clean["Credit"].sum()), 2),
             clean.to_json(orient="records"),
         )
     )
