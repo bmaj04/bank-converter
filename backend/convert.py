@@ -141,7 +141,8 @@ def clean_statement(df):
 
 TIME_RE = re.compile(r"^\d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2}$")
 AMOUNT_RE = re.compile(r"^(\d[\d,]*\.\d{2}|--)$")
-MAX_GAP = 16  # points: how far a wrapped line may sit from its transaction row
+MAX_GAP_INSIDE = 34  # points: furthest a wrapped line may sit from its row, between rows
+MAX_GAP_EDGE = 16  # points: same, at the very top or bottom of a page
 PAGE_KEY = 1000.0  # lets us sort lines across pages with one number
 
 
@@ -221,6 +222,11 @@ def parse_wallet_statement(source):
                 # Anything else is a wrapped description or reference fragment.
                 if any(w["text"] in ("Description", "Debit(₦)") for w in ws):
                     continue  # table header row
+                if any(
+                    w["text"] in ("Opening", "Closing", "Count") or w["text"].startswith("₦")
+                    for w in ws
+                ):
+                    continue  # account summary box
                 for w in ws:
                     if 170 <= w["x0"] < 300:
                         extras.append((pn, line["top"], w["x0"], "d", w["text"]))
@@ -235,13 +241,20 @@ def parse_wallet_statement(source):
     for idx, a in enumerate(anchors):
         by_page.setdefault(a["pn"], []).append(idx)
 
-    # Attach each fragment to the transaction it belongs to.
+    # Attach each fragment to the transaction it belongs to: the closest transaction
+    # line on the same page. Text is centred in its row, so the closest one is the owner.
+    span = {}
+    for pn, idxs in by_page.items():
+        span[pn] = (anchors[idxs[0]]["top"], anchors[idxs[-1]]["top"])
+
     for pn, top, x0, kind, text in extras:
         target = None
         same = by_page.get(pn, [])
         if same:
             nearest = min(same, key=lambda j: abs(anchors[j]["top"] - top))
-            if abs(anchors[nearest]["top"] - top) <= MAX_GAP:
+            gap = abs(anchors[nearest]["top"] - top)
+            inside = span[pn][0] <= top <= span[pn][1]
+            if gap <= (MAX_GAP_INSIDE if inside else MAX_GAP_EDGE):
                 target = nearest
         if target is None:  # a row that was split across a page break
             height = heights[pn]
@@ -275,6 +288,8 @@ def parse_wallet_statement(source):
             + a["ref"]
             + "".join(t for _, _, t in sorted(a["ref_after"]))
         )
+        if words and reference and words[-1] == reference:
+            words = words[:-1]  # some transfers repeat their reference inside the description
         account = ""
         for key, name in sections:
             if key <= a["key"]:

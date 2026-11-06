@@ -35,3 +35,5 @@ th, td { padding: 8px 10px; border-bottom: 1px solid #f0f1f4; text-align: left; 
 th { position: sticky; top: 0; background: #f3f4f6; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .note { text-align: center; color: #6b7280; font-size: 13px; }
+.toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: #374151; cursor: pointer; }
+.note-small { color: #6b7280; font-size: 13px; margin: 0 0 14px; }

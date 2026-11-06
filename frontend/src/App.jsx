@@ -11,6 +11,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [hideInternal, setHideInternal] = useState(true);
 
   function pick(f) {
     if (!f) return;
@@ -52,8 +53,12 @@ export default function App() {
   async function download() {
     const form = new FormData();
     form.append("file", file);
+    const exclude = Boolean(result && result.has_types && hideInternal);
     try {
-      const res = await fetch(`${API}/convert`, { method: "POST", body: form });
+      const res = await fetch(`${API}/convert?exclude_internal=${exclude}`, {
+        method: "POST",
+        body: form,
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || "Download failed.");
@@ -70,6 +75,13 @@ export default function App() {
       setStatus("error");
     }
   }
+
+  const hasTypes = Boolean(result && result.has_types);
+  const rows = result
+    ? hasTypes && hideInternal
+      ? result.rows.filter((r) => r.Type !== "Internal transfer")
+      : result.rows
+    : [];
 
   return (
     <div className="shell">
@@ -128,21 +140,54 @@ export default function App() {
         {status === "done" && result && (
           <section className="card">
             <div className="stats">
-              <div><span>Transactions</span><b>{result.count}</b></div>
-              <div><span>Total debits</span><b>{fmt(result.total_debits)}</b></div>
-              <div><span>Total credits</span><b>{fmt(result.total_credits)}</b></div>
+              <div><span>Transactions shown</span><b>{rows.length}</b></div>
+              <div>
+                <span>{hasTypes ? "Money in" : "Total credits"}</span>
+                <b>{fmt(result.money_in)}</b>
+              </div>
+              <div>
+                <span>{hasTypes ? "Money out" : "Total debits"}</span>
+                <b>{fmt(result.money_out)}</b>
+              </div>
               <button className="primary" onClick={download}>Download CSV</button>
             </div>
+
+            {hasTypes && (
+              <>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={hideInternal}
+                    onChange={(e) => setHideInternal(e.target.checked)}
+                  />
+                  Hide transfers between my own accounts ({result.internal_count} rows)
+                </label>
+                <p className="note-small">
+                  Money in and money out leave out transfers between your own accounts, so
+                  they show your real activity. Interest is counted as money in.
+                </p>
+              </>
+            )}
+
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th></tr>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    {hasTypes && <th>Account</th>}
+                    {hasTypes && <th>Type</th>}
+                    <th>Debit</th>
+                    <th>Credit</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {result.rows.map((r, i) => (
+                  {rows.map((r, i) => (
                     <tr key={i}>
                       <td>{r.Date}</td>
                       <td>{r.Description}</td>
+                      {hasTypes && <td>{r.Account}</td>}
+                      {hasTypes && <td>{r.Type}</td>}
                       <td className="num">{fmt(r.Debit)}</td>
                       <td className="num">{fmt(r.Credit)}</td>
                     </tr>
@@ -155,7 +200,7 @@ export default function App() {
 
         <p className="note">
           Your PDF is processed in memory and is not stored. Currently supports
-          statements with columns for date, year, amount, description and type.
+          several statement layouts, including OPay wallet statements.
         </p>
       </main>
     </div>
