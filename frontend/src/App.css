@@ -37,3 +37,11 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .note { text-align: center; color: #6b7280; font-size: 13px; }
 .toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: #374151; cursor: pointer; }
 .note-small { color: #6b7280; font-size: 13px; margin: 0 0 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; }
+.userbar { display: flex; gap: 12px; align-items: center; font-size: 14px; color: #374151; }
+.credits { background: #eef2ff; color: #1d4ed8; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+.auth { max-width: 380px; margin: 0 auto 20px; }
+.auth h2 { margin-top: 0; }
+.auth input { width: 100%; box-sizing: border-box; padding: 10px; margin: 6px 0 12px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+.linklike { background: none; border: 0; color: #1d4ed8; cursor: pointer; padding: 0; text-decoration: underline; }
+.ok { color: #166534; }
