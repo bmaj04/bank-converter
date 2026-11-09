@@ -45,3 +45,10 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .auth input { width: 100%; box-sizing: border-box; padding: 10px; margin: 6px 0 12px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
 .linklike { background: none; border: 0; color: #1d4ed8; cursor: pointer; padding: 0; text-decoration: underline; }
 .ok { color: #166534; }
+.banner { background: #eef2ff; color: #1e3a8a; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; }
+.primary.small { padding: 6px 12px; font-size: 14px; }
+.buy-head { display: flex; justify-content: space-between; align-items: center; }
+.buy-head h2 { margin: 0; }
+.packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
+.pack { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.pack .price { font-size: 20px; font-weight: 700; }

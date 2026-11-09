@@ -73,7 +73,8 @@ async def auth_user(authorization):
                 f"{SUPABASE_URL}/auth/v1/user",
                 headers={"Authorization": f"Bearer {token}", "apikey": PUBLISHABLE_KEY},
             )
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Supabase login check failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not reach the login service.")
     if r.status_code != 200:
         raise HTTPException(status_code=401, detail="Your session has expired. Please sign in again.")
