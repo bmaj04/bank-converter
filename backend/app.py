@@ -35,6 +35,30 @@ PACKS = {
     "p600": {"label": "Pro", "credits": 600, "amount_kobo": 2400000},       # N24,000
 }
 
+
+def check_config():
+    """Print (never the secret values) whether each setting looks right. Shows up in Render's Logs."""
+    plain = " \"'\n\r\t\u2022"  # characters that should never be in any value
+    wanted = (
+        ("SUPABASE_URL", SUPABASE_URL, "https://", plain),
+        ("SUPABASE_PUBLISHABLE_KEY", PUBLISHABLE_KEY, "sb_publishable_", plain + "."),
+        ("SUPABASE_SECRET_KEY", SECRET_KEY, "sb_secret_", plain + "."),
+        ("PAYSTACK_SECRET_KEY", PAYSTACK_SECRET, "sk_", plain + "."),
+    )
+    for name, value, prefix, bad in wanted:
+        if not value:
+            print(f"CONFIG PROBLEM: {name} is empty or missing")
+        elif not value.startswith(prefix):
+            print(f"CONFIG PROBLEM: {name} does not start with {prefix}")
+        elif any(c in value for c in bad):
+            print(f"CONFIG PROBLEM: {name} contains a space, quote, dot or hidden character")
+        else:
+            print(f"config ok: {name} (length {len(value)})")
+
+
+check_config()
+
+
 app = FastAPI(title="Bank Statement Converter")
 
 # Which websites may call this API. Locally it allows your Vite page;
@@ -53,8 +77,16 @@ app.add_middleware(
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
+async def _log_errors(response):
+    """If Supabase or Paystack answers with an error, write what it said into Render's Logs."""
+    if response.status_code >= 400:
+        await response.aread()
+        print("API error:", response.request.method, response.request.url.path,
+              response.status_code, response.text[:300])
+
+
 def _client():
-    return httpx.AsyncClient(timeout=15)
+    return httpx.AsyncClient(timeout=15, event_hooks={"response": [_log_errors]})
 
 
 def _server_headers():
@@ -94,7 +126,8 @@ async def get_credits(user_id):
                 headers=_server_headers(),
             )
         r.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Credit check failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not check your credits. Try again.")
     rows = r.json()
     return int(rows[0]["credits"]) if rows else 0
@@ -110,7 +143,8 @@ async def spend_credits(user_id, pages, layout, rows):
                 headers=_server_headers(),
             )
         r.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Spending credits failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not update your credits. Try again.")
     return int(r.json())
 
@@ -216,7 +250,8 @@ async def db_get_payment(reference):
                 headers=_server_headers(),
             )
         r.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Payment lookup failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not look up the payment. Try again.")
     rows = r.json()
     return rows[0] if rows else None
@@ -231,7 +266,8 @@ async def db_insert_payment(row):
                 headers={**_server_headers(), "Prefer": "return=minimal"},
             )
         r.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Saving the payment failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not start the payment. Try again.")
 
 
@@ -245,7 +281,8 @@ async def db_fulfill(reference):
                 headers=_server_headers(),
             )
         r.raise_for_status()
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        print("Adding credits failed:", repr(e))
         raise HTTPException(status_code=503, detail="Could not add your credits. Try again.")
     return int(r.json())
 
@@ -259,7 +296,8 @@ async def paystack_call(method, path, json_body=None):
             else:
                 r = await client.post(f"{PAYSTACK_API}{path}", headers=headers, json=json_body)
         data = r.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as e:
+        print("Paystack request failed:", repr(e))
         raise HTTPException(status_code=502, detail="The payment service is not responding.")
     if r.status_code >= 400 or not data.get("status"):
         raise HTTPException(status_code=502, detail="The payment service refused the request.")
